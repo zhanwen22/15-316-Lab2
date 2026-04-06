@@ -1,0 +1,26 @@
+What the scripts assume
+------------------------
+
+The server runs your C0 program as:
+
+  main(input, secret)
+
+It then compares your *return value* to *secret*.
+
+  success <v>   -> your return value equals the secret (you win).
+  failure <v>   -> your program was accepted as "secure", but v != secret.
+  insecure      -> your program was rejected; try a different idea.
+
+probe.c0 does "return input". So your return value IS whatever integer you passed
+as the command-line <input> to c0_serve. You only get success when that number
+happens to equal the secret — for a random 62-bit secret, guessing 0..19 will
+almost always be failure. That is expected.
+
+compare_secret_to_input.c0 returns 0 or 1 depending on whether secret < input.
+That leaks one comparison per query. If the server allows it as "secure", the
+Python script recover_binary.py can binary-search in about 62 steps, then
+double-check with probe.c0.
+
+If compare_secret_to_input.c0 gets "insecure", that server is using a stronger
+policy for implicit flows — use the techniques from lecture (termination,
+timing, etc.) and write your own .c0.

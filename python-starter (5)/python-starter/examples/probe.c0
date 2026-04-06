@@ -1,0 +1,5 @@
+// Return public input as the program result (works only if the server allows it).
+int main(int input, int secret)
+{
+    return input;
+}
