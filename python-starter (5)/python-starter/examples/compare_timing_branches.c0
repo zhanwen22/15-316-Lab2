@@ -1,0 +1,17 @@
+// Timing side channel: always terminates, always returns 0, but wall-clock differs
+// depending on secret < input (long loop vs short loop). Some servers ignore time.
+int main(int input, int secret)
+{
+    int i = 0;
+    if (secret < input) {
+        while (i < 12000000) {
+            i = i + 1;
+        }
+    } else {
+        i = 0;
+        while (i < 120000) {
+            i = i + 1;
+        }
+    }
+    return 0;
+}

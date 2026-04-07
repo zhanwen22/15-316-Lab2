@@ -1,0 +1,13 @@
+// Termination oracle: same ordering fact as compare_secret_to_input, but the
+// leak is "hang vs return 0" instead of "return 1 vs 0". Often passes checkers
+// that are termination-insensitive (or only care about explicit flows to return).
+//
+// Python driver treats subprocess TIMEOUT as secret < input, and a finished run
+// with failure/success as secret >= input (same binary-search update as implicit).
+int main(int input, int secret)
+{
+    while (secret < input) {
+        int spin = 1;
+    }
+    return 0;
+}
