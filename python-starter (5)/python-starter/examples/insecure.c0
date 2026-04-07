@@ -1,0 +1,6 @@
+int main(int input, int secret) {
+  int[] A = alloc_array(int, 4);
+  A[0] = 0; A[1] = 0; A[2] = 0; A[3] = 0;
+  A[secret % 4] = 1;
+  return A[3];
+}
