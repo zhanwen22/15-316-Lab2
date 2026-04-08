@@ -68,7 +68,7 @@ class Checker:
             return (value, abort)
           
           if op in ("&&", "||"):
-            abort = join(join(al, ar), vl)
+            abort = join(al, ar)
          
           else:
             abort = join(al, ar)
@@ -90,15 +90,14 @@ class Checker:
           va, aa = self.exp_info(arr)
           vi, ai = self.exp_info(index)
           value = join(va, vi)
-          abort = join(join(aa, ai), value)
+          abort = join(aa, join(ai, vi))
           return (value, abort)
         
         case _:
           raise IFCError(f"unsupported expression form {type(e)}")
 
-    # If current control flow is high or if abort level high then raise error
-    def require_low_abort(self, pc: int, abort_level: int) -> None:
-      if join(pc, abort_level) != L:
+    def require_low_abort(self, abort_level: int) -> None:
+      if abort_level != L:
         raise IFCError("abort depends on high data")
 
     # Matching from c0.py file. These are matched to the statment class
@@ -111,7 +110,7 @@ class Checker:
           
           if init is not None:
             v, a = self.exp_info(init)
-            self.require_low_abort(pc, a)
+            self.require_low_abort(a)
             
             if join(pc, v) > level:
               raise IFCError("illegal flow in declaration initializer")
@@ -119,7 +118,7 @@ class Checker:
         case c0.Assign(dest, source):
           _, dest_level = self.lookup(dest)
           v, a = self.exp_info(source)
-          self.require_low_abort(pc, a)
+          self.require_low_abort(a)
           
           if join(pc, v) > dest_level:
             raise IFCError("illegal flow in assignment")
@@ -132,18 +131,20 @@ class Checker:
     
           v, a = self.exp_info(count)
           
-          self.require_low_abort(pc, a)
-          
+          self.require_low_abort(a)
+
           if join(pc, v) > dest_level:
             raise IFCError("illegal flow in array allocation")
     
         case c0.ArrRead(dest, arr, index):
           _, dest_level = self.lookup(dest)
+          _, arr_level = self.lookup(arr.name) if isinstance(arr, c0.Var) else (None, L)
           va, aa = self.exp_info(arr)
           vi, ai = self.exp_info(index)
           value = join(va, vi)
-          abort = join(join(aa, ai), value)
-          self.require_low_abort(pc, abort)
+          abort = join(aa, join(ai, vi))
+          if arr_level == L:
+            self.require_low_abort(abort)
           
           if join(pc, value) > dest_level:
             raise IFCError("illegal flow in array read")
@@ -154,8 +155,9 @@ class Checker:
           _, arr_level = self.lookup(arr.name)
           vi, ai = self.exp_info(index)
           vw, aw = self.exp_info(val)
-          self.require_low_abort(pc, join(arr_level, join(ai, vi)))
-          self.require_low_abort(pc, aw)
+          if arr_level == L:
+            self.require_low_abort(join(ai, vi))
+          self.require_low_abort(aw)
           if join(pc, join(vi, vw)) > arr_level:
             raise IFCError("illegal flow in array write")
 
@@ -169,7 +171,7 @@ class Checker:
 
         case c0.If(cond, true_branch, false_branch):
           vc, ac = self.exp_info(cond)
-          self.require_low_abort(pc, ac)
+          self.require_low_abort(ac)
           pc2 = join(pc, vc)
           self.check_stmt(true_branch, pc2)
           if false_branch is not None:
@@ -181,12 +183,13 @@ class Checker:
           if pc != L or vc != L:
             raise IFCError("high-dependent loop")
           
-          self.require_low_abort(pc, ac)
+          self.require_low_abort(ac)
           self.check_stmt(body, L)
 
         case c0.Assert(cond):
           vc, ac = self.exp_info(cond)
-          self.require_low_abort(pc, join(vc, ac))
+          if join(pc, join(vc, ac)) != L:
+            raise IFCError("abort depends on high data")
 
         case c0.Error(_msg):
           if pc != L:
@@ -196,7 +199,7 @@ class Checker:
           if val is None:
             raise IFCError("return must have a value")
           v, a = self.exp_info(val)
-          self.require_low_abort(pc, a)
+          self.require_low_abort(a)
           if join(pc, v) != L:
             raise IFCError("return leaks high data")
       
